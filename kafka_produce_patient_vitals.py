@@ -28,6 +28,15 @@ df_stream = df_stream.withColumn("timestamp", expr("current_timestamp()"))
 
 query = df_stream.selectExpr("CAST(null AS STRING) AS key", "to_json(struct(*)) AS value")
 
+# Write dataframe to S3
+
+# df_stream.writeStream   \
+#     .format("csv")  \
+#     .outputMode("complete") \
+#     .option("path", "s3://cs777-a1-shriansh-b1/patient-vitals-project/")    \
+#     .trigger(processingTime="10 seconds")   \
+#     .start()
+
 # Write the transformed data to a Kafka topic
 query.writeStream \
     .format("kafka") \
@@ -63,7 +72,6 @@ query.writeStream \
 #     .outputMode("append") \
 #     .foreachBatch(process_batch) \
 #     .start()
-
 
 # Stop the SparkSession
 spark.stop()
