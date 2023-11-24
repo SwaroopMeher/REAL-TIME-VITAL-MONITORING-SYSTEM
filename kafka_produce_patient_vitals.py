@@ -28,14 +28,15 @@ df_stream = df_stream.withColumn("timestamp", expr("current_timestamp()"))
 
 query = df_stream.selectExpr("CAST(null AS STRING) AS key", "to_json(struct(*)) AS value")
 
-# Write dataframe to S3
+# Write dataframe to S3 (To be changed to S3 link. Currently local path for testing)
 
-# df_stream.writeStream   \
-#     .format("csv")  \
-#     .outputMode("complete") \
-#     .option("path", "s3://cs777-a1-shriansh-b1/patient-vitals-project/")    \
-#     .trigger(processingTime="10 seconds")   \
-#     .start()
+df_stream.writeStream   \
+    .format("csv")  \
+    .outputMode("append") \
+    .option("path", "result")    \
+    .option("checkpointLocation", "./batch_checkpoint/") \
+    .trigger(once=True) \
+    .start()
 
 # Write the transformed data to a Kafka topic
 query.writeStream \
