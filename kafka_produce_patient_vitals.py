@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, IntegerType, FloatType, StringType
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, expr
 
 # Create a SparkSession
 spark = SparkSession.builder.appName("KafkaProducer").getOrCreate()
@@ -21,13 +21,17 @@ df_stream = spark.readStream \
     .format("csv") \
     .option("header", True) \
     .schema(schema) \
-    .option("path", "patient_vitals_CSV/patient_vitals*.csv") \
-    .option("rateLimit", 1) \
+    .option("path", "patient_vitals_CSV") \
     .load()
 
+df_stream = df_stream.withColumn("timestamp", expr("current_timestamp()"))
+
+query = df_stream.selectExpr("CAST(null AS STRING) AS key", "to_json(struct(*)) AS value")
+
 # Write the transformed data to a Kafka topic
-df_stream.writeStream \
+query.writeStream \
     .format("kafka") \
+    .outputMode("append") \
     .option("kafka.bootstrap.servers", "localhost:9092") \
     .option("topic", "Patients-Vitals-Info") \
     .option("startingOffsets", "earliest") \
