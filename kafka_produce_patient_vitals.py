@@ -38,6 +38,32 @@ query.writeStream \
     .option("checkpointLocation", "./kafka_checkpoint/produce_patient_vitals/") \
     .start() \
     .awaitTermination()
+    
+# The following code is if we want to add an artificial delay between rows of the dataframe to have different timestamps
+
+# # Define the artificial delay between batches (in seconds)
+# batch_delay = 5  # Adjust as needed
+
+# # Define the custom function with artificial delay
+# def process_batch(batch_df, batch_id):
+#     # Introduce an artificial delay
+#     time.sleep(batch_delay)
+
+#     # Write to Kafka directly
+#     batch_df.selectExpr("CAST(null AS STRING) as key", "to_json(struct(*)) AS value") \
+#         .write \
+#         .format("kafka") \
+#         .option("kafka.bootstrap.servers", kafka_params["kafka.bootstrap.servers"]) \
+#         .option("topic", kafka_topic) \
+#         .save()
+
+# # Define the streaming query
+# query = csv_stream_df.writeStream \
+#     .trigger(processingTime="10 seconds")  # Adjust the overall processing time if needed
+#     .outputMode("append") \
+#     .foreachBatch(process_batch) \
+#     .start()
+
 
 # Stop the SparkSession
 spark.stop()
