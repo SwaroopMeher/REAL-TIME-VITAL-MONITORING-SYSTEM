@@ -26,7 +26,7 @@ df_stream = spark.readStream \
 
 df_stream = df_stream.withColumn("timestamp", expr("current_timestamp()"))
 
-query = df_stream.selectExpr("CAST(null AS STRING) AS key", "to_json(struct(*)) AS value")
+query = df_stream.selectExpr("to_json(struct(*)) AS value")
 
 # Write dataframe to S3 (To be changed to S3 link. Currently local path for testing)
 

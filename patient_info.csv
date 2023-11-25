@@ -1,0 +1,11 @@
+patientId,patient_name,phone_number,age,admitted_ward,address
+1,Jacob Sloan,(617) 239-6021,71,19,"68 W Concord Street, 02118"
+2,Allison Brennan,(617) 512-9667,60,15,"142 Norwell Street, 02121"
+3,Matthew Williams,(617) 891-5871,61,13,"1666 Commonwealth Avenue, 02135"
+4,Stefanie Turner,(617) 420-1317,38,19,"52 Columbia Road, 02121"
+5,Andrew Jones,(617) 599-8247,45,6,"456 Centre Street, 02130"
+6,Stephanie Romero,(617) 472-7444,44,16,"38 Greenough Avenue, 02130"
+7,Gregory Hammond,(617) 484-6642,29,13,"1086-1088A Dorchester Avenue, 02125"
+8,Mr. William Mccoy,(617) 643-6204,70,1,"30 Elm Street, 02130"
+9,Gregory Gallegos,(617) 268-1425,62,14,"73 Maple Street, 02136"
+10,Brittney Turner,(617) 525-6049,51,11,"69-69A Readville Street, 02136"
