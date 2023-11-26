@@ -1,0 +1,6 @@
+docker-compose up -d
+docker build -t producer -f Dockerfile.producer .
+docker build -t consumer -f Dockerfile.consumer .
+
+docker run --network=real-time-patient-vital-monitoring-system_default producer
+docker run --network=real-time-patient-vital-monitoring-system_default consumer

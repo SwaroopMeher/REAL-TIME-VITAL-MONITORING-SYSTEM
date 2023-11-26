@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS public.alerts (
+    patient_id INT,
+    alert_metric VARCHAR(255),
+    value FLOAT,
+    threshold_range VARCHAR(255),
+    alert_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.patient_vitals (
+    patient_id INT,
+    heart_rate INT,
+    systolic_bp INT,
+    diastolic_bp INT,
+    temperature FLOAT,
+    respiration_rate INT,
+    spo2 FLOAT,
+    date_time TIMESTAMP
+);
