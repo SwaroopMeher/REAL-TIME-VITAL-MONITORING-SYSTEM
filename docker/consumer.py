@@ -9,7 +9,7 @@ import json
 import os
 import boto3
 
-redshift = boto3.client("redshift", region_name="us-east-1")
+redshift = boto3.client("redshift-data", region_name="us-east-1")
 
 threshold_values = {
     'Heart Rate': (50,100),
@@ -63,7 +63,15 @@ if __name__ == "__main__":
             (patient_id, heart_rate, systolic_bp, diastolic_bp, temperature, respiration_rate, spo2)
             VALUES
             ({row["Patient ID"]}, {row["Heart Rate"]}, {row["Systolic BP"]}, {row["Diastolic BP"]}, {row["Temperature"]}, {row["Respiration Rate"]}, {row["SpO2"]})"""
-            redshift.execute(redshift_query)
+            #redshift.execute(redshift_query)
+            clientdata.execute_statement(
+                ClusterIdentifier='redshift-cluster-1',
+                Database='dev',
+                DbUser='awsuser',
+                Sql=redshift_query,
+                StatementName='InsertData',
+                SecretArn='arn:aws:iam::903187628715:role/myRedshiftRole'
+            )
             
             for column in threshold_values.keys():
                 alert_column = f"{column}_alert"
@@ -72,8 +80,16 @@ if __name__ == "__main__":
                     INSERT INTO public.alerts (patient_id, alert_metric, value, threshold_range)
                     VALUES
                     ({row["Patient ID"]}, '{column}', {row[column]}, '{threshold_values[column][0]}-{threshold_values[column][1]}') """
-                    redshift.execute(alert_query)
-                    
+                    #redshift.execute(alert_query)
+                    clientdata.execute_statement(
+                        ClusterIdentifier='redshift-cluster-1',
+                        Database='dev',
+                        DbUser='awsuser',
+                        Sql=alert_query,
+                        StatementName='InsertQueryData',
+                        SecretArn='arn:aws:iam::903187628715:role/myRedshiftRole'
+                    )
+            
                     print(f"Alert: {column} crossed the threshold. Current value: {row[column]}, Threshold: {threshold_values[column]}")
     
     for column, (min_threshold, max_threshold) in threshold_values.items():
