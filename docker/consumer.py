@@ -10,6 +10,9 @@ import os
 import boto3
 
 redshift = boto3.client("redshift-data", region_name="us-east-1")
+sns = boto3.client('sns',region_name='us-east-1')
+secret_arn = 'arn:aws:iam::903187628715:role/myRedshiftRole' #redshift
+snsTopicArn = 'arn:aws:sns:us-east-1:903187628715:patient_vital_alert' #sns
 
 threshold_values = {
     'Heart Rate': (50,100),
@@ -23,7 +26,10 @@ threshold_values = {
 if __name__ == "__main__":
     spark = SparkSession.builder.appName("VitalsAlerts")\
         .getOrCreate()
-    kafka_bootstrap_servers = "kafka:9093"
+    # docker 
+    # kafka_bootstrap_servers = "kafka:9093"
+    # Cluster
+    kafka_bootstrap_servers = "localhost:9092"
     kafka_topic = "patientvitals"
     spark.sparkContext.setLogLevel('WARN')
     # Read data from Kafka using the readStream API
@@ -38,7 +44,7 @@ if __name__ == "__main__":
     StructField("Patient ID", IntegerType(), True),
     StructField("Heart Rate", IntegerType(), True),
     StructField("Systolic BP", IntegerType(), True),
-    StructField("Diastolic BP", FloaIntegerTypetType(), True),
+    StructField("Diastolic BP", IntegerType(), True),
     StructField("Temperature", FloatType(), True),
     StructField("Respiration Rate", IntegerType(), True),
     StructField("SpO2", FloatType(), True)
@@ -52,10 +58,7 @@ if __name__ == "__main__":
 
     # query.awaitTermination()
 
-    # Check for threshold crossing and print alerts
-
-    # Check for threshold crossings and create an alert column
-    def process_alerts(records):
+    def load_stream(records):
         for row in records.toLocalIterator():
             # insert the row the main table
             redshift_query = f"""
@@ -70,9 +73,13 @@ if __name__ == "__main__":
                 DbUser='awsuser',
                 Sql=redshift_query,
                 StatementName='InsertData',
-                SecretArn='arn:aws:iam::903187628715:role/myRedshiftRole'
+                SecretArn=secret_arn
             )
-            
+
+    # Check for threshold crossing and print alerts
+    def process_alerts(records):
+        for row in records.toLocalIterator():
+            get_info = True          
             for column in threshold_values.keys():
                 alert_column = f"{column}_alert"
                 if row[alert_column] == 1:
@@ -87,10 +94,35 @@ if __name__ == "__main__":
                         DbUser='awsuser',
                         Sql=alert_query,
                         StatementName='InsertQueryData',
-                        SecretArn='arn:aws:iam::903187628715:role/myRedshiftRole'
+                        SecretArn=secret_arn
                     )
-            
-                    print(f"Alert: {column} crossed the threshold. Current value: {row[column]}, Threshold: {threshold_values[column]}")
+                    
+                    #sns
+                    #print(f"Alert: {column} crossed the threshold. Current value: {row[column]}, Threshold: {threshold_values[column]}")
+                    if get_info:
+                        # Execute the SELECT query
+                        select_query = f"SELECT patient_name, address FROM public.patients WHERE patient_id = {row['Patient ID']};"
+                        response = clientdata.execute_statement(
+                            ClusterIdentifier='redshift-cluster-1',
+                            Database='dev',
+                            DbUser='awsuser',
+                            Sql=select_query,
+                            StatementName='SelectData',
+                            SecretArn=secret_arn
+                        )
+
+                        result = clientdata.get_statement_result(
+                                Id=response['Id'])
+                        
+                        for row in result['Records']:
+                            patient_name = row[0]['stringValue']
+                            address = row[1]['stringValue']
+                        get_info=False
+
+                    alert = f"Alert: Patient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]}\nMust be in: {threshold_values[column]}"
+                    response = sns.publish(
+                                TopicArn=snsTopicArn,
+                                Message=str(alert))
     
     for column, (min_threshold, max_threshold) in threshold_values.items():
         json_df = json_df.withColumn(f"{column}_alert", expr(f"IF(`{column}` < {min_threshold} OR `{column}` > {max_threshold}, 1, 0)"))
@@ -99,14 +131,20 @@ if __name__ == "__main__":
     filtered_df = json_df.filter(expr(" OR ".join([f"`{column}_alert` = 1" for column in threshold_values.keys()])))
 
     # Define the streaming query and output the results
-    query = filtered_df \
+    query_load = json_df \
+        .writeStream \
+        .outputMode("append") \
+        .foreachBatch(lambda batch_df, batch_id: load_stream(batch_df)) \
+        .start()
+
+    query_alert = filtered_df \
         .writeStream \
         .outputMode("append") \
         .foreachBatch(lambda batch_df, batch_id: process_alerts(batch_df)) \
         .start()
 
-
-    query.awaitTermination()
+    query_load.awaitTermination()
+    query_alert.awaitTermination()
 
 #---------------------------Using Kafka-python-------------------------------------
 

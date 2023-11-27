@@ -7,7 +7,7 @@ import scipy.stats as stats
 import json
 import random
 import time
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 
 def generate_patient_vitals(id):
     t=3
@@ -92,7 +92,10 @@ def generate_patient_vitals(id):
 
 # #---------------------------Using Kafka-python-------------------------------------
 producer = KafkaProducer(
-    bootstrap_servers='kafka:9093',
+    # docker
+    #bootstrap_servers='kafka:9093',
+    # Cluster
+    bootstrap_servers = "localhost:9092",
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
