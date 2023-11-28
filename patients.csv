@@ -1,4 +1,4 @@
-patientId,patient_name,phone_number,age,admitted_ward,address
+patient_id,patient_name,phone_number,age,admitted_ward,address
 1,Jacob Sloan,(617) 239-6021,71,19,"68 W Concord Street, 02118"
 2,Allison Brennan,(617) 512-9667,60,15,"142 Norwell Street, 02121"
 3,Matthew Williams,(617) 891-5871,61,13,"1666 Commonwealth Avenue, 02135"

@@ -1,4 +1,7 @@
 # consumer.py
+#Usage
+#spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 consumer.py [public_DNS]
+
 #from kafka import KafkaConsumer
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, expr
@@ -8,18 +11,41 @@ import functools
 import json
 import os
 import boto3
+import pandas as pd
+import sys
 
 redshift = boto3.client("redshift-data", region_name="us-east-1")
 sns = boto3.client('sns',region_name='us-east-1')
-secret_arn = 'arn:aws:iam::903187628715:role/myRedshiftRole' #redshift
+# secret_arn = 'arn:aws:iam::903187628715:role/myRedshiftRole' #redshift
 snsTopicArn = 'arn:aws:sns:us-east-1:903187628715:patient_vital_alert' #sns
+s3 = boto3.client('s3')
+
+s3_bucket = 'patient-vital-monitoring-system'
+stream_csv_path = 'patient_vitals.csv'
+patient_csv_path = 'patients.csv'
+alerts_csv_path = 'alerts.csv'
+
+def create_csv_if_not_exists(bucket, key, columns):
+    try:
+        # Check if the file exists
+        s3.head_object(Bucket=bucket, Key=key)
+    except Exception as e:
+        # If the file does not exist, create it with headers
+        if '404' in str(e):
+            empty_df = pd.DataFrame(columns=columns)
+            s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
+
+# Create CSV files if not present
+create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2"])
+create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range"])
+
 
 threshold_values = {
     'Heart Rate': (50,100),
     'Systolic BP': (50, 140),
     'Diastolic BP': (50, 90),
     'Temperature': (90,98.6),
-    'Respiration Rate': (8, 20),
+    'Respiration Rate': (8,20),
     'SpO2': (89,101)
 }
 
@@ -29,7 +55,7 @@ if __name__ == "__main__":
     # docker 
     # kafka_bootstrap_servers = "kafka:9093"
     # Cluster
-    kafka_bootstrap_servers = "localhost:9092"
+    kafka_bootstrap_servers = f"{sys.argv[1]}:9092"
     kafka_topic = "patientvitals"
     spark.sparkContext.setLogLevel('WARN')
     # Read data from Kafka using the readStream API
@@ -61,65 +87,103 @@ if __name__ == "__main__":
     def load_stream(records):
         for row in records.toLocalIterator():
             # insert the row the main table
-            redshift_query = f"""
-            INSERT INTO public.patient_vitals
-            (patient_id, heart_rate, systolic_bp, diastolic_bp, temperature, respiration_rate, spo2)
-            VALUES
-            ({row["Patient ID"]}, {row["Heart Rate"]}, {row["Systolic BP"]}, {row["Diastolic BP"]}, {row["Temperature"]}, {row["Respiration Rate"]}, {row["SpO2"]})"""
-            #redshift.execute(redshift_query)
-            clientdata.execute_statement(
-                ClusterIdentifier='redshift-cluster-1',
-                Database='dev',
-                DbUser='awsuser',
-                Sql=redshift_query,
-                StatementName='InsertData',
-                SecretArn=secret_arn
-            )
+            # redshift_query = f"""
+            # INSERT INTO public.patient_vitals
+            # (patient_id, heart_rate, systolic_bp, diastolic_bp, temperature, respiration_rate, spo2)
+            # VALUES
+            # ({row["Patient ID"]}, {row["Heart Rate"]}, {row["Systolic BP"]}, {row["Diastolic BP"]}, {row["Temperature"]}, {row["Respiration Rate"]}, {row["SpO2"]})"""
+            # #redshift.execute(redshift_query)
+            # redshift.execute_statement(
+            #     ClusterIdentifier='redshift-cluster-1',
+            #     Database='dev',
+            #     DbUser='awsuser',
+            #     Sql=redshift_query,
+            #     StatementName='InsertData',
+            #     SecretArn=secret_arn
+            # )
+
+            # Append the data to the stream CSV file in S3
+            stream_data = pd.DataFrame({
+            "patient_id": [row["Patient ID"]],
+            "heart_rate": [row["Heart Rate"]],
+            "systolic_bp": [row["Systolic BP"]],
+            "diastolic_bp": [row["Diastolic BP"]],
+            "temperature": [row["Temperature"]],
+            "respiration_rate": [row["Respiration Rate"]],
+            "spo2": [row["SpO2"]]
+            })
+            s3_object = s3.get_object(Bucket=s3_bucket, Key=stream_csv_path)
+            existing_data = pd.read_csv(s3_object['Body'])
+            updated_data = pd.concat([existing_data, stream_data], ignore_index=True)
+            s3.put_object(Body=updated_data.to_csv(index=False), Bucket=s3_bucket, Key=stream_csv_path)
 
     # Check for threshold crossing and print alerts
     def process_alerts(records):
+        patient_name=''
+        address=''
         for row in records.toLocalIterator():
             get_info = True          
             for column in threshold_values.keys():
                 alert_column = f"{column}_alert"
                 if row[alert_column] == 1:
-                    alert_query = f"""
-                    INSERT INTO public.alerts (patient_id, alert_metric, value, threshold_range)
-                    VALUES
-                    ({row["Patient ID"]}, '{column}', {row[column]}, '{threshold_values[column][0]}-{threshold_values[column][1]}') """
-                    #redshift.execute(alert_query)
-                    clientdata.execute_statement(
-                        ClusterIdentifier='redshift-cluster-1',
-                        Database='dev',
-                        DbUser='awsuser',
-                        Sql=alert_query,
-                        StatementName='InsertQueryData',
-                        SecretArn=secret_arn
-                    )
+                    # alert_query = f"""
+                    # INSERT INTO public.alerts (patient_id, alert_metric, value, threshold_range)
+                    # VALUES
+                    # ({row["Patient ID"]}, '{column}', {row[column]}, '({threshold_values[column][0]}-{threshold_values[column][1]})') """
+                    # #redshift.execute(alert_query)
+                    # redshift.execute_statement(
+                    #     ClusterIdentifier='redshift-cluster-1',
+                    #     Database='dev',
+                    #     DbUser='awsuser',
+                    #     Sql=alert_query,
+                    #     StatementName='InsertQueryData',
+                    #     SecretArn=secret_arn
+                    # )
+
+                    alerts_data = pd.DataFrame({
+                        "patient_id": [row["Patient ID"]],
+                        "alert_metric": [column],
+                        "value": [row[column]],
+                        "threshold_range": [f"({threshold_values[column][0]}-{threshold_values[column][1]})"]
+                    })
+                    s3_object = s3.get_object(Bucket=s3_bucket, Key=alerts_csv_path)
+                    existing_data = pd.read_csv(s3_object['Body'])
+                    updated_data = pd.concat([existing_data, alerts_data], ignore_index=True)
+                    s3.put_object(Body=updated_data.to_csv(index=False), Bucket=s3_bucket, Key=alerts_csv_path)
                     
                     #sns
                     #print(f"Alert: {column} crossed the threshold. Current value: {row[column]}, Threshold: {threshold_values[column]}")
                     if get_info:
                         # Execute the SELECT query
-                        select_query = f"SELECT patient_name, address FROM public.patients WHERE patient_id = {row['Patient ID']};"
-                        response = clientdata.execute_statement(
-                            ClusterIdentifier='redshift-cluster-1',
-                            Database='dev',
-                            DbUser='awsuser',
-                            Sql=select_query,
-                            StatementName='SelectData',
-                            SecretArn=secret_arn
-                        )
+                        # select_query = f"SELECT patient_name, address FROM public.patients WHERE patient_id = {row['Patient ID']};"
+                        # response = redshift.execute_statement(
+                        #     ClusterIdentifier='redshift-cluster-1',
+                        #     Database='dev',
+                        #     DbUser='awsuser',
+                        #     Sql=select_query,
+                        #     StatementName='SelectData',
+                        #     SecretArn=secret_arn
+                        # )
 
-                        result = clientdata.get_statement_result(
-                                Id=response['Id'])
+                        # result = redshift.get_statement_result(
+                        #         Id=response['Id'])
                         
-                        for row in result['Records']:
-                            patient_name = row[0]['stringValue']
-                            address = row[1]['stringValue']
+                        # for row in result['Records']:
+                        #     patient_name = row[0]['stringValue']
+                        #     address = row[1]['stringValue']
+                        s3_object = s3.get_object(Bucket=s3_bucket, Key=patient_csv_path)
+                        patient_data = pd.read_csv(s3_object['Body'], usecols=['patient_id','patient_name','phone_number','age','admitted_ward','address'])
+
+                        # Filter the patient data for the given patient_id
+                        patient_info = patient_data[patient_data['patient_id'] == row['Patient ID']]
+
+                        if not patient_info.empty:
+                            # Extract patient name and address
+                            patient_name = patient_info.iloc[0]['patient_name']
+                            address = patient_info.iloc[0]['address']
                         get_info=False
 
-                    alert = f"Alert: Patient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]}\nMust be in: {threshold_values[column]}"
+                    alert = f"Alert:\nPatient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]:.2f}\nMust be in: {threshold_values[column]}"
                     response = sns.publish(
                                 TopicArn=snsTopicArn,
                                 Message=str(alert))
