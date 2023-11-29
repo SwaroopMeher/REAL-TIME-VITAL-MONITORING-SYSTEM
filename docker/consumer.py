@@ -5,7 +5,7 @@
 #from kafka import KafkaConsumer
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, expr
-from pyspark.sql.types import StructType, StructField, IntegerType, FloatType
+from pyspark.sql.types import StructType, StructField, IntegerType, FloatType, TimestampType
 from pyspark.sql.functions import col
 import functools
 import json
@@ -13,6 +13,7 @@ import os
 import boto3
 import pandas as pd
 import sys
+from datetime import datetime
 
 redshift = boto3.client("redshift-data", region_name="us-east-1")
 sns = boto3.client('sns',region_name='us-east-1')
@@ -36,15 +37,15 @@ def create_csv_if_not_exists(bucket, key, columns):
             s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
 
 # Create CSV files if not present
-create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2"])
-create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range"])
+create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2", "date_time"])
+create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range", "alert_timestamp"])
 
 
 threshold_values = {
     'Heart Rate': (50,100),
     'Systolic BP': (50, 140),
     'Diastolic BP': (50, 90),
-    'Temperature': (90,98.6),
+    'Temperature': (94,100),
     'Respiration Rate': (8,20),
     'SpO2': (89,101)
 }
@@ -73,7 +74,8 @@ if __name__ == "__main__":
     StructField("Diastolic BP", IntegerType(), True),
     StructField("Temperature", FloatType(), True),
     StructField("Respiration Rate", IntegerType(), True),
-    StructField("SpO2", FloatType(), True)
+    StructField("SpO2", FloatType(), True),
+    StructField("Datetime", TimestampType(), True)
     ])
 
     #value_df = kafka_stream_df.selectExpr("CAST(value AS STRING)")
@@ -110,7 +112,8 @@ if __name__ == "__main__":
             "diastolic_bp": [row["Diastolic BP"]],
             "temperature": [row["Temperature"]],
             "respiration_rate": [row["Respiration Rate"]],
-            "spo2": [row["SpO2"]]
+            "spo2": [row["SpO2"]],
+            "date_time": [row["Datetime"]]
             })
             s3_object = s3.get_object(Bucket=s3_bucket, Key=stream_csv_path)
             existing_data = pd.read_csv(s3_object['Body'])
@@ -144,7 +147,8 @@ if __name__ == "__main__":
                         "patient_id": [row["Patient ID"]],
                         "alert_metric": [column],
                         "value": [row[column]],
-                        "threshold_range": [f"({threshold_values[column][0]}-{threshold_values[column][1]})"]
+                        "threshold_range": [f"({threshold_values[column][0]}-{threshold_values[column][1]})"],
+                        "alert_timestamp": [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
                     })
                     s3_object = s3.get_object(Bucket=s3_bucket, Key=alerts_csv_path)
                     existing_data = pd.read_csv(s3_object['Body'])
