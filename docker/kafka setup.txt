@@ -20,7 +20,7 @@ python producer.py
 
 # New terminal
 aws s3 cp s3://patient-vital-monitoring-system/consumer.py .
-spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 consumer.py ec2-3-87-218-103.compute-1.amazonaws.com
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 consumer.py ec2-18-208-114-31.compute-1.amazonaws.com
 
 ------------------------------------------------------------
 # New terminal

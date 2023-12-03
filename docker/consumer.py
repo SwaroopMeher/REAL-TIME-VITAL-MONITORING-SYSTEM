@@ -26,19 +26,19 @@ stream_csv_path = 'patient_vitals.csv'
 patient_csv_path = 'patients.csv'
 alerts_csv_path = 'alerts.csv'
 
-def create_csv_if_not_exists(bucket, key, columns):
-    try:
-        # Check if the file exists
-        s3.head_object(Bucket=bucket, Key=key)
-    except Exception as e:
-        # If the file does not exist, create it with headers
-        if '404' in str(e):
-            empty_df = pd.DataFrame(columns=columns)
-            s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
+# def create_csv_if_not_exists(bucket, key, columns):
+#     try:
+#         # Check if the file exists
+#         s3.head_object(Bucket=bucket, Key=key)
+#     except Exception as e:
+#         # If the file does not exist, create it with headers
+#         if '404' in str(e):
+#             empty_df = pd.DataFrame(columns=columns)
+#             s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
 
-# Create CSV files if not present
-create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2", "date_time"])
-create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range", "alert_timestamp"])
+# # Create CSV files if not present
+# create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2", "date_time"])
+# create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range", "alert_timestamp"])
 
 
 threshold_values = {
@@ -86,8 +86,8 @@ if __name__ == "__main__":
 
     # query.awaitTermination()
 
-    def load_stream(records):
-        for row in records.toLocalIterator():
+    def load_stream(batch_df):
+        # for row in records.toLocalIterator():
             # insert the row the main table
             # redshift_query = f"""
             # INSERT INTO public.patient_vitals
@@ -105,26 +105,30 @@ if __name__ == "__main__":
             # )
 
             # Append the data to the stream CSV file in S3
-            stream_data = pd.DataFrame({
-            "patient_id": [row["Patient ID"]],
-            "heart_rate": [row["Heart Rate"]],
-            "systolic_bp": [row["Systolic BP"]],
-            "diastolic_bp": [row["Diastolic BP"]],
-            "temperature": [row["Temperature"]],
-            "respiration_rate": [row["Respiration Rate"]],
-            "spo2": [row["SpO2"]],
-            "date_time": [row["Datetime"]]
-            })
-            s3_object = s3.get_object(Bucket=s3_bucket, Key=stream_csv_path)
-            existing_data = pd.read_csv(s3_object['Body'])
-            updated_data = pd.concat([existing_data, stream_data], ignore_index=True)
-            s3.put_object(Body=updated_data.to_csv(index=False), Bucket=s3_bucket, Key=stream_csv_path)
+            # stream_data = pd.DataFrame({
+            # "patient_id": [row["Patient ID"]],
+            # "heart_rate": [row["Heart Rate"]],
+            # "systolic_bp": [row["Systolic BP"]],
+            # "diastolic_bp": [row["Diastolic BP"]],
+            # "temperature": [row["Temperature"]],
+            # "respiration_rate": [row["Respiration Rate"]],
+            # "spo2": [row["SpO2"]],
+            # "date_time": [row["Datetime"]]
+            # })
+        batch_df = batch_df.select(['Patient ID', 'Heart Rate', 'Systolic BP', 'Diastolic BP', 'Temperature', 'Respiration Rate','SpO2','Datetime'])
+        batch_df.write.csv("s3://patient-vital-monitoring-system/patient_vitals/", header=True, mode="append")
+        # stream_data = batch_df.toPandas()
+        # s3_object = s3.get_object(Bucket=s3_bucket, Key=stream_csv_path)
+        # existing_data = pd.read_csv(s3_object['Body'])
+        # updated_data = pd.concat([existing_data, stream_data], ignore_index=True)
+        # s3.put_object(Body=updated_data.to_csv(index=False), Bucket=s3_bucket, Key=stream_csv_path)
 
     # Check for threshold crossing and print alerts
-    def process_alerts(records):
+    def process_alerts(batch_df):
         patient_name=''
         address=''
-        for row in records.toLocalIterator():
+        batch_df.write.csv("s3://patient-vital-monitoring-system/alerts/", header=True, mode="append")
+        for row in batch_df.toLocalIterator():
             get_info = True          
             for column in threshold_values.keys():
                 alert_column = f"{column}_alert"
@@ -199,17 +203,28 @@ if __name__ == "__main__":
     filtered_df = json_df.filter(expr(" OR ".join([f"`{column}_alert` = 1" for column in threshold_values.keys()])))
 
     # Define the streaming query and output the results
+    # query_load = json_df \
+    #     .writeStream \
+    #     .outputMode("append") \
+    #     .foreachBatch(lambda batch_df, batch_id: load_stream(batch_df)) \
+    #     .start()
+
     query_load = json_df \
         .writeStream \
         .outputMode("append") \
         .foreachBatch(lambda batch_df, batch_id: load_stream(batch_df)) \
         .start()
-
     query_alert = filtered_df \
         .writeStream \
         .outputMode("append") \
         .foreachBatch(lambda batch_df, batch_id: process_alerts(batch_df)) \
         .start()
+
+    # query_alert = filtered_df \
+    #     .writeStream \
+    #     .outputMode("append") \
+    #     .foreachBatch(process_alerts) \
+    #     .start()
 
     query_load.awaitTermination()
     query_alert.awaitTermination()

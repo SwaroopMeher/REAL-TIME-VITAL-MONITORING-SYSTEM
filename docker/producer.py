@@ -8,9 +8,12 @@ import json
 import random
 import time
 from datetime import datetime, timedelta
+from pytz import timezone
+
+tz = timezone('EST')
 
 def generate_patient_vitals(id):
-    t=3
+    t=2
     n=1
     # Simulate random values for heart rate (bpm)
     heart_rate = int(np.round(stats.truncnorm.rvs(-t, t, 72, 12, n), 2)[0])
@@ -30,7 +33,7 @@ def generate_patient_vitals(id):
     spo2[spo2 > 100] = 100
     spo2=spo2[0]
 
-    date_time= datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    date_time= datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')
 
     return {
         'Patient ID': id,
@@ -101,10 +104,10 @@ producer = KafkaProducer(
 
 def send_vitals():
     while True:
-        for id in range(1,11):  # Run for 10 seconds
-            vitals = generate_patient_vitals(id)
+        vitals = []
+        for id in range(1,10001):  # Run for 10 seconds
+            vitals.append(generate_patient_vitals(id))
             producer.send('patientvitals', vitals)
-            time.sleep(0.5)
         time.sleep(30)
 
 if __name__ == "__main__":
