@@ -193,14 +193,14 @@ if __name__ == "__main__":
                             address = patient_info.iloc[0]['address']
                         get_info=False
 
-                    # alert = f"Alert:\nPatient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]:.2f}\nMust be in: {threshold_values[column]}"
-                    # response = sns.publish(
-                    #             TopicArn=snsTopicArn,
-                    #             Message=str(alert))
+                    alert = f"Alert:\nPatient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]:.2f}\nMust be in: {threshold_values[column]}"
+                    response = sns.publish(
+                                TopicArn=snsTopicArn,
+                                Message=str(alert))
     
     for column, (min_threshold, max_threshold) in threshold_values.items():
         json_df = json_df.withColumn(f"{column}_alert", expr(f"IF(`{column}` < {min_threshold} OR `{column}` > {max_threshold}, 1, 0)"))
-
+    
     # Filter the DataFrame to include only rows where any alert column is 1
     filtered_df = json_df.filter(expr(" OR ".join([f"`{column}_alert` = 1" for column in threshold_values.keys()])))
 
