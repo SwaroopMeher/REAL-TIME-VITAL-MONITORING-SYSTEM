@@ -26,19 +26,19 @@ stream_csv_path = 'patient_vitals.csv'
 patient_csv_path = 'patients.csv'
 alerts_csv_path = 'alerts.csv'
 
-# def create_csv_if_not_exists(bucket, key, columns):
-#     try:
-#         # Check if the file exists
-#         s3.head_object(Bucket=bucket, Key=key)
-#     except Exception as e:
-#         # If the file does not exist, create it with headers
-#         if '404' in str(e):
-#             empty_df = pd.DataFrame(columns=columns)
-#             s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
+def create_csv_if_not_exists(bucket, key, columns):
+    try:
+        # Check if the file exists
+        s3.head_object(Bucket=bucket, Key=key)
+    except Exception as e:
+        # If the file does not exist, create it with headers
+        if '404' in str(e):
+            empty_df = pd.DataFrame(columns=columns)
+            s3.put_object(Body=empty_df.to_csv(index=False), Bucket=bucket, Key=key)
 
 # # Create CSV files if not present
 # create_csv_if_not_exists(s3_bucket, stream_csv_path, ["patient_id", "heart_rate", "systolic_bp", "diastolic_bp", "temperature", "respiration_rate", "spo2", "date_time"])
-# create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range", "alert_timestamp"])
+create_csv_if_not_exists(s3_bucket, alerts_csv_path, ["patient_id", "alert_metric", "value", "threshold_range", "alert_timestamp"])
 
 
 threshold_values = {

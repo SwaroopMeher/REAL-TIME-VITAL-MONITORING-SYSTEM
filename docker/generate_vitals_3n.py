@@ -8,7 +8,7 @@ def generate_patient_vitals(id, date_time):
     t=3
     n=1
     patient_data_10 = []
-    for id in range(1,11):
+    for id in range(1,500001):
         # Simulate random values for heart rate (bpm)
         heart_rate = int(np.round(stats.truncnorm.rvs(-t, t, 72, 12, n), 2)[0])
         
@@ -44,9 +44,9 @@ def generate_patient_vitals(id, date_time):
     return patient_data_10
 
 # Function to generate rows for 3 nights
-def generate_rows_for_3_nights():
+def generate_rows_for_N_nights(N):
     start_date = datetime.strptime('2023-11-23 18:00:00', '%Y-%m-%d %H:%M:%S')
-    end_date = start_date + timedelta(days=3)  # 3 nights
+    end_date = start_date + timedelta(days=N)  # 3 nights
 
     time_interval = timedelta(seconds=30)
     current_date_time = start_date
@@ -54,10 +54,10 @@ def generate_rows_for_3_nights():
     rows = []
 
     while current_date_time < end_date:
-        if 18 <= current_date_time.hour < 24 or 0 <= current_date_time.hour < 6:
+        if 18 <= current_date_time.hour < 20: #or 0 <= current_date_time.hour < 6:
             date_time_str = current_date_time.strftime('%Y-%m-%d %H:%M:%S')
-            patient_data_10 = generate_patient_vitals(id=1, date_time=date_time_str)
-            for patient_data in patient_data_10: 
+            patient_data_n = generate_patient_vitals(id=1, date_time=date_time_str)
+            for patient_data in patient_data_n: 
                 rows.append(patient_data)
 
         current_date_time += time_interval
@@ -65,10 +65,10 @@ def generate_rows_for_3_nights():
     return rows
 
 # Generate rows for 3 nights
-generated_rows = generate_rows_for_3_nights()
+generated_rows = generate_rows_for_N_nights(1)
 
 # Create a DataFrame from the generated rows
 df = pd.DataFrame(generated_rows)
 print(df.shape)
 # Save the DataFrame to a CSV file
-df.to_csv('data/patient_vitals_3nights.csv', index=False)
+df.to_csv('data/patient_vitals_1night_500Kpatients.csv', index=False)

@@ -13,7 +13,7 @@ from pytz import timezone
 tz = timezone('EST')
 
 def generate_patient_vitals(id):
-    t=2
+    t=2.5
     n=1
     # Simulate random values for heart rate (bpm)
     heart_rate = int(np.round(stats.truncnorm.rvs(-t, t, 72, 12, n), 2)[0])
@@ -105,7 +105,7 @@ producer = KafkaProducer(
 def send_vitals():
     while True:
         #vitals = []
-        for id in range(1,50001):  # Run for 10 seconds
+        for id in range(1,500001):  # Run for 10 seconds
             producer.send('patientvitals', generate_patient_vitals(id))
         time.sleep(30)
 
