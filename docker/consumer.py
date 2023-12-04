@@ -115,7 +115,9 @@ if __name__ == "__main__":
             # "spo2": [row["SpO2"]],
             # "date_time": [row["Datetime"]]
             # })
+        
         batch_df = batch_df.select(['Patient ID', 'Heart Rate', 'Systolic BP', 'Diastolic BP', 'Temperature', 'Respiration Rate','SpO2','Datetime'])
+        #batch_df.show(1, truncate=False)
         batch_df.write.csv("s3://patient-vital-monitoring-system/patient_vitals/", header=True, mode="append")
         # stream_data = batch_df.toPandas()
         # s3_object = s3.get_object(Bucket=s3_bucket, Key=stream_csv_path)
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     def process_alerts(batch_df):
         patient_name=''
         address=''
-        batch_df.write.csv("s3://patient-vital-monitoring-system/alerts/", header=True, mode="append")
+        #batch_df.write.csv("s3://patient-vital-monitoring-system/alerts/", header=True, mode="append")
         for row in batch_df.toLocalIterator():
             get_info = True          
             for column in threshold_values.keys():
@@ -191,10 +193,10 @@ if __name__ == "__main__":
                             address = patient_info.iloc[0]['address']
                         get_info=False
 
-                    alert = f"Alert:\nPatient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]:.2f}\nMust be in: {threshold_values[column]}"
-                    response = sns.publish(
-                                TopicArn=snsTopicArn,
-                                Message=str(alert))
+                    # alert = f"Alert:\nPatient: {patient_name},\nAddress: {address},\n{column} is abnormal.\nCurrent value: {row[column]:.2f}\nMust be in: {threshold_values[column]}"
+                    # response = sns.publish(
+                    #             TopicArn=snsTopicArn,
+                    #             Message=str(alert))
     
     for column, (min_threshold, max_threshold) in threshold_values.items():
         json_df = json_df.withColumn(f"{column}_alert", expr(f"IF(`{column}` < {min_threshold} OR `{column}` > {max_threshold}, 1, 0)"))

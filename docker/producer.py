@@ -104,10 +104,9 @@ producer = KafkaProducer(
 
 def send_vitals():
     while True:
-        vitals = []
-        for id in range(1,10001):  # Run for 10 seconds
-            vitals.append(generate_patient_vitals(id))
-            producer.send('patientvitals', vitals)
+        #vitals = []
+        for id in range(1,50001):  # Run for 10 seconds
+            producer.send('patientvitals', generate_patient_vitals(id))
         time.sleep(30)
 
 if __name__ == "__main__":
