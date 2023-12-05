@@ -47,7 +47,7 @@ threshold_values = {
     'Diastolic BP': (50, 90),
     'Temperature': (94,100),
     'Respiration Rate': (8,20),
-    'SpO2': (89,101)
+    'SpO2': (94.5,101)
 }
 
 if __name__ == "__main__":
