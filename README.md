@@ -55,7 +55,7 @@ This project paves the way for a future of proactive healthcare, where real-time
 
 We believe this project holds immense potential to revolutionize healthcare by providing a foundation for continuous, proactive, and data-driven patient monitoring.
 
-**Project report**: [Link]() </br>
-**Project presentation**: [Link]()
+**Project report**: [Link](https://github.com/SwaroopMeher/REAL-TIME-PATIENT-VITAL-MONITORING-SYSTEM/blob/8dc13a86c03701e78d1ba3c5621822319bed3917/Shriansh_Swaroop_CS777_A1_Group_Report.pdf) </br>
+**Project presentation**: [Link](https://github.com/SwaroopMeher/REAL-TIME-PATIENT-VITAL-MONITORING-SYSTEM/blob/8dc13a86c03701e78d1ba3c5621822319bed3917/Real-Time%20Patient%20Vital%20Monitoring%20System.pptx)
 
 **Keywords**: Real-time patient monitoring, IoMT, Spark Streaming, AWS SNS, AWS S3, AWS Redshift, Metabase, healthcare analytics
